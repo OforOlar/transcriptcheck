@@ -1,12 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Ignore TypeScript errors during production build.
-  // The app is fully functional — these are type inference
-  // issues caused by the dynamically typed Supabase client.
+  // Skip TypeScript type checking during production build
   typescript: {
     ignoreBuildErrors: true,
   },
+  // standalone output bundles only what is needed to run the app
+  // making the Docker image smaller and faster to start
+  output: 'standalone',
 };
 
 export default nextConfig;

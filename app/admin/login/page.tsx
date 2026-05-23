@@ -1,5 +1,4 @@
 'use client';
-export const dynamic = 'force-dynamic';
 // Unit 1 Sec 1.5  — RBAC: admin portal enforces role boundary at login
 // Unit 3 Sec 3.4.5 — Error Handling: specific error messages per failure type
 // Unit 3 Sec 3.4.4 — Defensive Programming: all inputs validated before auth call
