@@ -1,4 +1,5 @@
 'use client';
+export const dynamic = 'force-dynamic';
 // ══════════════════════════════════════════════════════════════
 // TranscriptCheck — Admin Dashboard
 // Unit 1 Sec 1.2  — Modular Design: dashboard is one self-contained module
