@@ -1,0 +1,92 @@
+# ============================================================
+# TranscriptCheck — docker-compose.yml
+# Orchestrates two containers running together as one system:
+#   1. nextjs  — the Next.js application server (port 3000)
+#   2. nginx   — the reverse proxy (port 80, public-facing)
+#
+# Unit 3 Sec 3.4.8 — Runtime Configuration: the entire
+#   infrastructure is defined as code in this single file.
+#   Running `docker compose up` reproduces the exact same
+#   environment on any machine, anywhere in the world.
+# Unit 3 Sec 3.3.6 — Construction with Reuse: both Node.js
+#   and Nginx are reused as open source components.
+# Unit 1 Sec 1.3  — Anticipating Change: adding a database
+#   container in future requires only a new service block here.
+# ============================================================
+
+version: '3.9'
+
+services:
+
+  # ── Service 1: Next.js Application ─────────────────────────
+  nextjs:
+    # Build the Next.js container from the Dockerfile
+    # in the current directory
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: transcriptcheck_app
+
+    # Load environment variables from .env.local
+    # These are never committed to GitHub — only exist at runtime
+    # Unit 3 Sec 3.4.8 — Runtime Configuration
+    env_file:
+      - .env.local
+
+    # Port 3000 is only accessible inside Docker's internal network.
+    # It is NOT exposed to the internet — only Nginx can reach it.
+    # This is the security benefit of the reverse proxy pattern.
+    expose:
+      - "3000"
+
+    # Restart automatically if the container crashes
+    restart: unless-stopped
+
+    # Connect to the shared internal network
+    networks:
+      - transcriptcheck_network
+
+    # Health check — Docker will restart the container if
+    # the app stops responding to requests
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1",
+             "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout:  10s
+      retries:  3
+
+  # ── Service 2: Nginx Reverse Proxy ─────────────────────────
+  nginx:
+    # Use the official lightweight Nginx Alpine image
+    image: nginx:alpine
+    container_name: transcriptcheck_nginx
+
+    # Port 80 IS exposed to the internet.
+    # All public traffic enters here and is forwarded to nextjs.
+    ports:
+      - "80:80"
+
+    # Mount the nginx.conf file into the container.
+    # Changing nginx.conf and restarting updates Nginx instantly
+    # without rebuilding the entire container.
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+
+    # Nginx must wait for the Next.js app to be healthy
+    # before it starts accepting traffic
+    depends_on:
+      nextjs:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+    networks:
+      - transcriptcheck_network
+
+# ── Internal Network ────────────────────────────────────────
+# A private Docker network shared between both containers.
+# nextjs and nginx can reach each other by service name.
+# Nothing outside this network can reach nextjs directly.
+networks:
+  transcriptcheck_network:
+    driver: bridge
