@@ -71,6 +71,7 @@ USER nextjs
 
 # Expose port 3000 — the port Next.js listens on
 EXPOSE 3000
+ENV PORT=3000
 
 # The command that runs when the container starts
-CMD ["npm", "start"]
+CMD ["node_modules/.bin/next", "start", "-p", "3000"]
