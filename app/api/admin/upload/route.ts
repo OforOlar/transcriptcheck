@@ -1,20 +1,30 @@
 // app/api/admin/upload/route.ts
-// Sends student notification email via Gmail SMTP port 465 (SSL).
-// Port 465 is used instead of 587 because Railway blocks port 587.
+// Sends student notification email via SendGrid HTTP API.
+// SendGrid uses HTTPS (port 443) — never blocked by Railway.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import nodemailer from 'nodemailer';
 
-const transporter = nodemailer.createTransport({
-  host:   'smtp.gmail.com',
-  port:   465,
-  secure: true,
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
-  },
-});
+async function sendEmail(to: string, subject: string, html: string) {
+  const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.SENDGRID_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      personalizations: [{ to: [{ email: to }] }],
+      from: { email: 'oforolar824@gmail.com', name: 'TranscriptCheck' },
+      subject,
+      content: [{ type: 'text/html', value: html }],
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`SendGrid error ${res.status}: ${err}`);
+  }
+}
 
 function scanTranscriptText(text: string) {
   const anomalies: Array<{
@@ -242,7 +252,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Send student notification email
+    // Send student notification email via SendGrid
     try {
       const adminClient = createSupabaseClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -266,16 +276,11 @@ export async function POST(req: NextRequest) {
           ? correctionEmail(studentName, academic_year, appUrl)
           : firstUploadEmail(studentName, academic_year, appUrl);
 
-        await transporter.sendMail({
-          from:    `"TranscriptCheck" <${process.env.GMAIL_USER}>`,
-          to:      studentEmail,
-          subject,
-          html,
-        });
+        await sendEmail(studentEmail, subject, html);
         console.log(`[upload] Email sent to ${studentEmail}`);
       }
     } catch (emailErr) {
-      console.error('[upload] SMTP error:', emailErr);
+      console.error('[upload] SendGrid error:', emailErr);
     }
 
     return NextResponse.json({

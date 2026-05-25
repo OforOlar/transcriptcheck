@@ -1,20 +1,30 @@
 // app/api/student/notify-flag/route.ts
-// Sends admin notification email via Gmail SMTP port 465 (SSL).
-// Port 465 is used instead of 587 because Railway blocks port 587.
+// Sends admin notification email via SendGrid HTTP API.
+// SendGrid uses HTTPS (port 443) — never blocked by Railway.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import nodemailer from 'nodemailer';
 
-const transporter = nodemailer.createTransport({
-  host:   'smtp.gmail.com',
-  port:   465,
-  secure: true,
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
-  },
-});
+async function sendEmail(to: string, subject: string, html: string) {
+  const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.SENDGRID_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      personalizations: [{ to: [{ email: to }] }],
+      from: { email: 'oforolar824@gmail.com', name: 'TranscriptCheck' },
+      subject,
+      content: [{ type: 'text/html', value: html }],
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`SendGrid error ${res.status}: ${err}`);
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -128,15 +138,14 @@ export async function POST(req: NextRequest) {
       const { data: authUser } = await adminClient.auth.admin.getUserById(admin.id);
       const adminEmail = authUser?.user?.email;
       if (adminEmail) {
-        await transporter.sendMail({
-          from:    `"TranscriptCheck" <${process.env.GMAIL_USER}>`,
-          to:      adminEmail,
-          subject: `New Error Flag — ${studentProf.full_name} (${studentProf.matricule})`,
-          html,
-        }).then(() => {
+        await sendEmail(
+          adminEmail,
+          `New Error Flag — ${studentProf.full_name} (${studentProf.matricule})`,
+          html
+        ).then(() => {
           console.log(`[notify-flag] Email sent to ${adminEmail}`);
         }).catch(err => {
-          console.error('[notify-flag] SMTP error:', err);
+          console.error('[notify-flag] SendGrid error:', err);
         });
       }
     }
