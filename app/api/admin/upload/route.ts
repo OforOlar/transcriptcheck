@@ -1,30 +1,20 @@
 // app/api/admin/upload/route.ts
-// Sends student notification email via Resend REST API.
-// Resend uses HTTPS (port 443) — never blocked by Railway.
+// Sends student notification email via Gmail SMTP port 465 (SSL).
+// Port 465 is used instead of 587 because Railway blocks port 587.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import nodemailer from 'nodemailer';
 
-async function sendEmail(to: string, subject: string, html: string) {
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from:    'TranscriptCheck <onboarding@resend.dev>',
-      to,
-      subject,
-      html,
-    }),
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Resend error: ${err}`);
-  }
-  return res.json();
-}
+const transporter = nodemailer.createTransport({
+  host:   'smtp.gmail.com',
+  port:   465,
+  secure: true,
+  auth: {
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_APP_PASSWORD,
+  },
+});
 
 function scanTranscriptText(text: string) {
   const anomalies: Array<{
@@ -96,7 +86,9 @@ function firstUploadEmail(studentName: string, academicYear: string, appUrl: str
         <strong>${academicYear}</strong> academic year has been successfully uploaded
         to your student portal by your faculty administrator.
       </p>
-      <div class="box"><p>Your transcript is now available for review in your student portal.</p></div>
+      <div class="box">
+        <p>Your transcript is now available for review in your student portal.</p>
+      </div>
       <p class="msg">
         Please log in to view your transcript carefully. If you notice any discrepancies
         or errors, you can submit an error flag directly from your dashboard and your
@@ -143,10 +135,12 @@ function correctionEmail(studentName: string, academicYear: string, appUrl: stri
     <div class="body">
       <p class="greeting">Hello, ${studentName}!</p>
       <p class="msg">
-        Your faculty administrator has reviewed the error you reported on your academic
-        transcript and has uploaded a corrected version to your student portal.
+        Your faculty administrator has reviewed the error you reported on your
+        academic transcript and has uploaded a corrected version to your student portal.
       </p>
-      <div class="box"><p>Your ${academicYear} transcript has been updated based on your flagged error.</p></div>
+      <div class="box">
+        <p>Your ${academicYear} transcript has been updated based on your flagged error.</p>
+      </div>
       <p class="msg">
         Please log in and review your updated transcript to confirm that all information
         is now accurate. If you notice any remaining issues, you can submit a new error flag.
@@ -192,13 +186,17 @@ export async function POST(req: NextRequest) {
     const academic_year = formData.get('academic_year') as string;
 
     if (!file || !student_id || !academic_year) {
-      return NextResponse.json({ success: false, error: 'Missing required fields.' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'Missing required fields.' }, { status: 400 }
+      );
     }
     if (file.type !== 'application/pdf') {
-      return NextResponse.json({ success: false, error: 'Only PDF files are accepted.' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'Only PDF files are accepted.' }, { status: 400 }
+      );
     }
 
-    // Check if transcript already exists (determines email type)
+    // Check if transcript already exists
     const { data: existingTranscript } = await supabase
       .from('transcripts').select('id').eq('student_id', student_id).maybeSingle();
     const isCorrection = !!existingTranscript;
@@ -244,7 +242,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Send student notification email via Resend
+    // Send student notification email
     try {
       const adminClient = createSupabaseClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -268,10 +266,16 @@ export async function POST(req: NextRequest) {
           ? correctionEmail(studentName, academic_year, appUrl)
           : firstUploadEmail(studentName, academic_year, appUrl);
 
-        await sendEmail(studentEmail, subject, html);
+        await transporter.sendMail({
+          from:    `"TranscriptCheck" <${process.env.GMAIL_USER}>`,
+          to:      studentEmail,
+          subject,
+          html,
+        });
+        console.log(`[upload] Email sent to ${studentEmail}`);
       }
     } catch (emailErr) {
-      console.error('[upload] Resend email error:', emailErr);
+      console.error('[upload] SMTP error:', emailErr);
     }
 
     return NextResponse.json({

@@ -1,31 +1,20 @@
 // app/api/student/notify-flag/route.ts
-// Sends admin notification email via Resend REST API.
-// Resend uses HTTPS (port 443) which is never blocked by Railway.
-// nodemailer uses SMTP (port 587) which Railway blocks.
+// Sends admin notification email via Gmail SMTP port 465 (SSL).
+// Port 465 is used instead of 587 because Railway blocks port 587.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import nodemailer from 'nodemailer';
 
-async function sendEmail(to: string, subject: string, html: string) {
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from:    'TranscriptCheck <onboarding@resend.dev>',
-      to,
-      subject,
-      html,
-    }),
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Resend error: ${err}`);
-  }
-  return res.json();
-}
+const transporter = nodemailer.createTransport({
+  host:   'smtp.gmail.com',
+  port:   465,
+  secure: true,
+  auth: {
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_APP_PASSWORD,
+  },
+});
 
 export async function POST(req: NextRequest) {
   try {
@@ -51,6 +40,7 @@ export async function POST(req: NextRequest) {
 
     if (!studentProf) return NextResponse.json({ success: true });
 
+    // Find all admins for this faculty
     const { data: adminProfiles } = await supabase
       .from('profiles')
       .select('id, full_name')
@@ -61,12 +51,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
+    // Get admin emails via service role key
     const adminClient = createSupabaseClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+    const appUrl      = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
     const submittedAt = new Date().toLocaleString('en-GB', {
       day: 'numeric', month: 'long', year: 'numeric',
       hour: '2-digit', minute: '2-digit',
@@ -106,7 +97,9 @@ export async function POST(req: NextRequest) {
     <div class="body">
       <span class="badge">Action Required</span>
       <div class="label">Student</div>
-      <div class="value">${studentProf.full_name} &nbsp;·&nbsp; <span style="font-family:monospace;color:#0f766e">${studentProf.matricule}</span></div>
+      <div class="value">${studentProf.full_name} &nbsp;·&nbsp;
+        <span style="font-family:monospace;color:#0f766e">${studentProf.matricule}</span>
+      </div>
       <div class="label">Error Type</div>
       <div class="value">${error_type}</div>
       <div class="row">
@@ -135,11 +128,16 @@ export async function POST(req: NextRequest) {
       const { data: authUser } = await adminClient.auth.admin.getUserById(admin.id);
       const adminEmail = authUser?.user?.email;
       if (adminEmail) {
-        await sendEmail(
-          adminEmail,
-          `New Error Flag — ${studentProf.full_name} (${studentProf.matricule})`,
-          html
-        ).catch(err => console.error('[notify-flag] Resend error:', err));
+        await transporter.sendMail({
+          from:    `"TranscriptCheck" <${process.env.GMAIL_USER}>`,
+          to:      adminEmail,
+          subject: `New Error Flag — ${studentProf.full_name} (${studentProf.matricule})`,
+          html,
+        }).then(() => {
+          console.log(`[notify-flag] Email sent to ${adminEmail}`);
+        }).catch(err => {
+          console.error('[notify-flag] SMTP error:', err);
+        });
       }
     }
 
