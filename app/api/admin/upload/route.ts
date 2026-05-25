@@ -1,26 +1,31 @@
 // app/api/admin/upload/route.ts
-// Unit 3 Sec 3.8.2 — Automated Construction: AI scanner + email on every upload
-// Unit 3 Sec 3.4.1 — API Design: clean layered interface
-// Unit 3 Sec 3.4.4 — Defensive Programming: authenticated client for all ops
-// Unit 3 Sec 3.4.8 — Runtime Configuration: email credentials from environment
-// Unit 2 Sec 2.2.1 — Corrective Change: student notified when transcript corrected
+// Sends student notification email via Resend REST API.
+// Resend uses HTTPS (port 443) — never blocked by Railway.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import nodemailer from 'nodemailer';
 
-// ── Email transport — Unit 3 Sec 3.4.8 Runtime Configuration ──
-const transporter = nodemailer.createTransport({
-  host:   'smtp.gmail.com',
-  port:   587,
-  secure: false,
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
-  },
-});
+async function sendEmail(to: string, subject: string, html: string) {
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from:    'TranscriptCheck <onboarding@resend.dev>',
+      to,
+      subject,
+      html,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Resend error: ${err}`);
+  }
+  return res.json();
+}
 
-// ── AI Anomaly Detection — Unit 3 Sec 3.8.2 ──────────────────
 function scanTranscriptText(text: string) {
   const anomalies: Array<{
     type: string; description: string; severity: string;
@@ -56,68 +61,51 @@ function scanTranscriptText(text: string) {
     }
   }
 
-  const suspiciousCodes = text.match(/\b[A-Z]{5,}\d{3,}\b/g);
-  if (suspiciousCodes && suspiciousCodes.length > 0) {
-    anomalies.push({
-      type: 'MALFORMED_COURSE_CODE',
-      description: `Possible malformed course code(s): ${suspiciousCodes.slice(0, 3).join(', ')}`,
-      severity: 'low',
-      detected_value: suspiciousCodes.slice(0, 3).join(', '),
-      expected_range: '2-4 letters + 3-4 digits (e.g. CEC418)',
-    });
-  }
-
   return anomalies;
 }
-
-// ── Email Templates ───────────────────────────────────────────
 
 function firstUploadEmail(studentName: string, academicYear: string, appUrl: string) {
   return `
 <!DOCTYPE html>
 <html>
-<head><meta charset="utf-8" /><style>
-  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 0; }
-  .wrapper { max-width: 560px; margin: 32px auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
-  .header { background: linear-gradient(135deg, #0f766e, #059669); padding: 36px; text-align: center; }
-  .header h1 { color: white; font-size: 22px; margin: 0 0 6px; font-weight: 700; }
-  .header p  { color: rgba(255,255,255,0.85); font-size: 14px; margin: 0; }
-  .body { padding: 36px; }
-  .greeting { font-size: 16px; color: #111827; font-weight: 600; margin-bottom: 16px; }
-  .message  { font-size: 15px; color: #374151; line-height: 1.7; margin-bottom: 24px; }
-  .highlight { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 16px 20px; margin-bottom: 28px; }
-  .highlight p { margin: 0; font-size: 14px; color: #15803d; font-weight: 600; }
-  .cta { display: block; padding: 14px; background: linear-gradient(135deg, #0f766e, #059669); color: white; text-align: center; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 15px; }
-  .footer { background: #f9fafb; padding: 20px 36px; border-top: 1px solid #e5e7eb; text-align: center; }
-  .footer p { font-size: 12px; color: #9ca3af; margin: 0; }
+<head><meta charset="utf-8"/><style>
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f8;margin:0;padding:0}
+  .wrap{max-width:560px;margin:32px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+  .head{background:linear-gradient(135deg,#0f766e,#059669);padding:36px;text-align:center}
+  .head h1{color:#fff;font-size:22px;margin:0 0 6px;font-weight:700}
+  .head p{color:rgba(255,255,255,.85);font-size:14px;margin:0}
+  .body{padding:36px}
+  .greeting{font-size:16px;color:#111827;font-weight:600;margin-bottom:16px}
+  .msg{font-size:15px;color:#374151;line-height:1.7;margin-bottom:24px}
+  .box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px 20px;margin-bottom:28px}
+  .box p{margin:0;font-size:14px;color:#15803d;font-weight:600}
+  .cta{display:block;padding:14px;background:linear-gradient(135deg,#0f766e,#059669);color:#fff;text-align:center;text-decoration:none;border-radius:10px;font-weight:700;font-size:15px}
+  .foot{background:#f9fafb;padding:20px 36px;border-top:1px solid #e5e7eb;text-align:center}
+  .foot p{font-size:12px;color:#9ca3af;margin:0}
 </style></head>
 <body>
-  <div class="wrapper">
-    <div class="header">
+  <div class="wrap">
+    <div class="head">
       <h1>Your Transcript is Ready</h1>
-      <p>TranscriptCheck · University of Buea</p>
+      <p>TranscriptCheck &nbsp;·&nbsp; University of Buea</p>
     </div>
     <div class="body">
       <p class="greeting">Hello, ${studentName}!</p>
-      <p class="message">
+      <p class="msg">
         We are pleased to inform you that your official academic transcript for the
         <strong>${academicYear}</strong> academic year has been successfully uploaded
         to your student portal by your faculty administrator.
       </p>
-      <div class="highlight">
-        <p>Your transcript is now available for review in your student portal.</p>
-      </div>
-      <p class="message">
+      <div class="box"><p>Your transcript is now available for review in your student portal.</p></div>
+      <p class="msg">
         Please log in to view your transcript carefully. If you notice any discrepancies
-        or errors — such as incorrect grades, wrong personal details, or missing courses —
-        you can submit an error flag directly from your dashboard and your administrator
-        will be notified immediately.
+        or errors, you can submit an error flag directly from your dashboard and your
+        administrator will be notified immediately.
       </p>
-      <a href="${appUrl}/student/transcript" class="cta">View My Transcript →</a>
+      <a href="${appUrl}/student/transcript" class="cta">View My Transcript</a>
     </div>
-    <div class="footer">
-      <p>This is an automated message from TranscriptCheck. Please do not reply to this email.</p>
-      <p style="margin-top:4px">CEC418 Software Construction &amp; Evolution · University of Buea ${academicYear}</p>
+    <div class="foot">
+      <p>Automated message from TranscriptCheck. Do not reply to this email.</p>
     </div>
   </div>
 </body>
@@ -128,75 +116,65 @@ function correctionEmail(studentName: string, academicYear: string, appUrl: stri
   return `
 <!DOCTYPE html>
 <html>
-<head><meta charset="utf-8" /><style>
-  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 0; }
-  .wrapper { max-width: 560px; margin: 32px auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
-  .header { background: linear-gradient(135deg, #1d4ed8, #0f766e); padding: 36px; text-align: center; }
-  .header h1 { color: white; font-size: 22px; margin: 0 0 6px; font-weight: 700; }
-  .header p  { color: rgba(255,255,255,0.85); font-size: 14px; margin: 0; }
-  .body { padding: 36px; }
-  .greeting { font-size: 16px; color: #111827; font-weight: 600; margin-bottom: 16px; }
-  .message  { font-size: 15px; color: #374151; line-height: 1.7; margin-bottom: 24px; }
-  .highlight { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 16px 20px; margin-bottom: 28px; }
-  .highlight p { margin: 0; font-size: 14px; color: #1d4ed8; font-weight: 600; }
-  .steps { background: #f9fafb; border-radius: 10px; padding: 20px; margin-bottom: 28px; }
-  .steps p { margin: 0 0 8px; font-size: 14px; color: #374151; }
-  .steps p:last-child { margin: 0; }
-  .cta { display: block; padding: 14px; background: linear-gradient(135deg, #1d4ed8, #0f766e); color: white; text-align: center; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 15px; }
-  .footer { background: #f9fafb; padding: 20px 36px; border-top: 1px solid #e5e7eb; text-align: center; }
-  .footer p { font-size: 12px; color: #9ca3af; margin: 0; }
+<head><meta charset="utf-8"/><style>
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6f8;margin:0;padding:0}
+  .wrap{max-width:560px;margin:32px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+  .head{background:linear-gradient(135deg,#1d4ed8,#0f766e);padding:36px;text-align:center}
+  .head h1{color:#fff;font-size:22px;margin:0 0 6px;font-weight:700}
+  .head p{color:rgba(255,255,255,.85);font-size:14px;margin:0}
+  .body{padding:36px}
+  .greeting{font-size:16px;color:#111827;font-weight:600;margin-bottom:16px}
+  .msg{font-size:15px;color:#374151;line-height:1.7;margin-bottom:24px}
+  .box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:16px 20px;margin-bottom:28px}
+  .box p{margin:0;font-size:14px;color:#1d4ed8;font-weight:600}
+  .steps{background:#f9fafb;border-radius:10px;padding:20px;margin-bottom:28px}
+  .steps p{margin:0 0 8px;font-size:14px;color:#374151}
+  .steps p:last-child{margin:0}
+  .cta{display:block;padding:14px;background:linear-gradient(135deg,#1d4ed8,#0f766e);color:#fff;text-align:center;text-decoration:none;border-radius:10px;font-weight:700;font-size:15px}
+  .foot{background:#f9fafb;padding:20px 36px;border-top:1px solid #e5e7eb;text-align:center}
+  .foot p{font-size:12px;color:#9ca3af;margin:0}
 </style></head>
 <body>
-  <div class="wrapper">
-    <div class="header">
-      <h1> Transcript Updated</h1>
-      <p>TranscriptCheck · University of Buea</p>
+  <div class="wrap">
+    <div class="head">
+      <h1>Transcript Updated</h1>
+      <p>TranscriptCheck &nbsp;·&nbsp; University of Buea</p>
     </div>
     <div class="body">
       <p class="greeting">Hello, ${studentName}!</p>
-      <p class="message">
-        Great news — your faculty administrator has reviewed the error you reported on
-        your academic transcript and has uploaded a corrected version to your student portal.
+      <p class="msg">
+        Your faculty administrator has reviewed the error you reported on your academic
+        transcript and has uploaded a corrected version to your student portal.
       </p>
-      <div class="highlight">
-        <p> Your ${academicYear} transcript has been updated based on your flagged error.</p>
-      </div>
-      <p class="message">
-        We kindly ask you to log in and review your updated transcript to confirm that
-        all the information is now accurate and complete. If you notice any remaining
-        discrepancies, do not hesitate to submit a new error flag from your dashboard.
+      <div class="box"><p>Your ${academicYear} transcript has been updated based on your flagged error.</p></div>
+      <p class="msg">
+        Please log in and review your updated transcript to confirm that all information
+        is now accurate. If you notice any remaining issues, you can submit a new error flag.
       </p>
       <div class="steps">
-        <p> <strong>What to do next:</strong></p>
+        <p><strong>What to do next:</strong></p>
         <p>1. Log in to your student portal</p>
-        <p>2. Click <strong>"View Transcript"</strong> to review the updated PDF</p>
+        <p>2. Click View Transcript to review the updated PDF</p>
         <p>3. If everything looks correct, no further action is needed</p>
         <p>4. If you spot another issue, submit a new error flag</p>
       </div>
-      <a href="${appUrl}/student/transcript" class="cta">Review My Updated Transcript →</a>
+      <a href="${appUrl}/student/transcript" class="cta">Review My Updated Transcript</a>
     </div>
-    <div class="footer">
-      <p>This is an automated message from TranscriptCheck. Please do not reply to this email.</p>
-      <p style="margin-top:4px">CEC418 Software Construction &amp; Evolution · University of Buea ${academicYear}</p>
+    <div class="foot">
+      <p>Automated message from TranscriptCheck. Do not reply to this email.</p>
     </div>
   </div>
 </body>
 </html>`;
 }
 
-// ── Main POST handler ─────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
-    // Unit 3 Sec 3.4.4 — Defensive Programming: Bearer token auth
-    const authHeader = req.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '').trim();
+    const token = req.headers.get('authorization')?.replace('Bearer ', '').trim();
     if (!token) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorised. Please log in.' }, { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorised.' }, { status: 401 });
     }
 
-    // Authenticated Supabase client — all operations run as logged-in user
     const supabase = createSupabaseClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -205,38 +183,27 @@ export async function POST(req: NextRequest) {
 
     const { data: { user }, error: userErr } = await supabase.auth.getUser();
     if (userErr || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Session expired. Please log in again.' }, { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Session expired.' }, { status: 401 });
     }
 
-    const formData     = await req.formData();
-    const file         = formData.get('file') as File | null;
-    const student_id   = formData.get('student_id') as string;
+    const formData      = await req.formData();
+    const file          = formData.get('file') as File | null;
+    const student_id    = formData.get('student_id') as string;
     const academic_year = formData.get('academic_year') as string;
 
     if (!file || !student_id || !academic_year) {
-      return NextResponse.json(
-        { success: false, error: 'Missing required fields.' }, { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: 'Missing required fields.' }, { status: 400 });
     }
     if (file.type !== 'application/pdf') {
-      return NextResponse.json(
-        { success: false, error: 'Only PDF files are accepted.' }, { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: 'Only PDF files are accepted.' }, { status: 400 });
     }
 
-    // ── Check if transcript already exists (first upload vs correction) ──
-    // Unit 2 Sec 2.2.1 — Corrective Change: determines which email to send
+    // Check if transcript already exists (determines email type)
     const { data: existingTranscript } = await supabase
-      .from('transcripts')
-      .select('id')
-      .eq('student_id', student_id)
-      .maybeSingle();
-
+      .from('transcripts').select('id').eq('student_id', student_id).maybeSingle();
     const isCorrection = !!existingTranscript;
 
-    // ── Upload PDF to Supabase Storage ────────────────────────
+    // Upload PDF to storage
     const fileName   = `${student_id}/${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
     const fileBuffer = await file.arrayBuffer();
 
@@ -250,23 +217,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── AI Anomaly Scan — Unit 3 Sec 3.8.2 ───────────────────
+    // AI anomaly scan
     const textContent = await file.text().catch(() => '');
     const anomalies   = scanTranscriptText(textContent);
 
-    // ── Save transcript record ────────────────────────────────
+    // Save transcript record
     const { data: transcript, error: dbErr } = await supabase
       .from('transcripts')
       .upsert({
         student_id,
-        file_path:     fileName,
-        file_name:     file.name,
+        file_path:    fileName,
+        file_name:    file.name,
         academic_year,
-        status:        'pending',
-        ai_scanned:    true,
-        ai_anomalies:  anomalies,
-        uploaded_by:   user.id,
-        created_at:    new Date().toISOString(),
+        status:       'pending',
+        ai_scanned:   true,
+        ai_anomalies: anomalies,
+        uploaded_by:  user.id,
+        created_at:   new Date().toISOString(),
       }, { onConflict: 'student_id' })
       .select()
       .single();
@@ -277,21 +244,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Send student notification email ───────────────────────
-    // Unit 3 Sec 3.4.8 — Runtime Configuration: app URL from env
-    // Unit 2 Sec 2.2.1 — Corrective Change: different email per upload type
+    // Send student notification email via Resend
     try {
-      // Use service role to get student's email from auth.users
       const adminClient = createSupabaseClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
       );
 
       const { data: studentProfile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', student_id)
-        .maybeSingle();
+        .from('profiles').select('full_name').eq('id', student_id).maybeSingle();
 
       const { data: authUser } = await adminClient.auth.admin.getUserById(student_id);
       const studentEmail = authUser?.user?.email;
@@ -307,29 +268,23 @@ export async function POST(req: NextRequest) {
           ? correctionEmail(studentName, academic_year, appUrl)
           : firstUploadEmail(studentName, academic_year, appUrl);
 
-        await transporter.sendMail({
-          from:    `"TranscriptCheck" <${process.env.GMAIL_USER}>`,
-          to:      studentEmail,
-          subject,
-          html,
-        });
+        await sendEmail(studentEmail, subject, html);
       }
     } catch (emailErr) {
-      // Unit 3 Sec 3.4.5 — Error Handling: email failure never blocks upload
-      console.error('[upload] Student email notification failed:', emailErr);
+      console.error('[upload] Resend email error:', emailErr);
     }
 
     return NextResponse.json({
       success: true,
       data: transcript,
       message: anomalies.length > 0
-        ? `Transcript ${isCorrection ? 'updated' : 'uploaded'}. ${anomalies.length} anomaly(ies) detected by AI scan. Student has been notified.`
-        : `Transcript ${isCorrection ? 'updated' : 'uploaded'} successfully. No anomalies detected. Student has been notified.`,
+        ? `Transcript ${isCorrection ? 'updated' : 'uploaded'}. ${anomalies.length} anomaly detected. Student notified.`
+        : `Transcript ${isCorrection ? 'updated' : 'uploaded'} successfully. Student notified.`,
     });
 
   } catch (err: unknown) {
     return NextResponse.json(
-      { success: false, error: err instanceof Error ? err.message : 'Internal server error.' },
+      { success: false, error: err instanceof Error ? err.message : 'Server error.' },
       { status: 500 }
     );
   }
