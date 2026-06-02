@@ -32,173 +32,195 @@ export default function StudentLoginPage() {
     }
   }
 
+  const BG = 'linear-gradient(135deg,#060b18 0%,#0d1530 60%,#0b1228 100%)';
+
   return (
-    <div style={{
-      minHeight: '100vh', display: 'flex',
-      background: 'linear-gradient(145deg,#050c08 0%,#071210 40%,#0a1810 100%)',
-      fontFamily: "'Segoe UI',system-ui,sans-serif",
-    }}>
+    <div style={{ minHeight: '100vh', display: 'flex', background: BG,
+      fontFamily: "'Segoe UI',system-ui,sans-serif" }}>
       <style>{`
-        @keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes spin   { to{transform:rotate(360deg)} }
-        .link-h:hover { color:#5eead4!important; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes slideIn { from{opacity:0;transform:translateX(-20px)} to{opacity:1;transform:translateX(0)} }
+        .inp:focus { border-color:rgba(59,130,246,0.5)!important; background:rgba(59,130,246,0.06)!important; outline:none; }
+        .btn-primary:hover:not(:disabled) { background:#2563eb!important; transform:translateY(-1px); }
+        .lnk:hover { color:#93c5fd!important; }
+        * { box-sizing:border-box; }
       `}</style>
 
-      {/* Left panel */}
+      {/* LEFT — branding panel */}
       <div style={{
-        width: '45%', display: 'flex', flexDirection: 'column',
-        justifyContent: 'center', alignItems: 'center',
-        padding: '60px 48px',
-        background: 'rgba(20,184,166,0.04)',
-        borderRight: '1px solid rgba(20,184,166,0.08)',
+        width: '44%', padding: '0 56px',
+        display: 'flex', flexDirection: 'column', justifyContent: 'center',
+        borderRight: '1px solid rgba(255,255,255,0.06)',
+        background: 'rgba(255,255,255,0.02)',
       }}>
-        <div style={{ maxWidth: '340px', width: '100%' }}>
-          <div style={{
-            width: '56px', height: '56px', borderRadius: '16px', marginBottom: '24px',
-            background: 'linear-gradient(135deg,#14b8a6,#10b981)',
-            boxShadow: '0 0 28px rgba(20,184,166,0.5)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <span style={{ color: 'white', fontWeight: 900, fontSize: '20px' }}>TC</span>
+        <div style={{ animation: 'slideIn 0.6s ease forwards' }}>
+          {/* Logo */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '40px' }}>
+            <div style={{
+              width: '44px', height: '44px', borderRadius: '10px', flexShrink: 0,
+              background: '#3b82f6',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <span style={{ color: 'white', fontWeight: 900, fontSize: '15px' }}>TC</span>
+            </div>
+            <div>
+              <p style={{ color: '#f1f5f9', fontWeight: 700, fontSize: '17px', lineHeight: 1 }}>TranscriptCheck</p>
+              <p style={{ color: '#475569', fontSize: '12px', marginTop: '3px' }}>University of Buea</p>
+            </div>
           </div>
-          <h1 style={{ color: 'white', fontWeight: 800, fontSize: '2rem',
-            letterSpacing: '-0.02em', marginBottom: '12px' }}>
-            TranscriptCheck
-          </h1>
-          <p style={{ color: '#6b7280', fontSize: '15px', lineHeight: 1.7, marginBottom: '32px' }}>
-            Log in to view and verify your academic transcript before it is officially issued.
+
+          <h2 style={{ color: '#f1f5f9', fontWeight: 800, fontSize: '2rem',
+            letterSpacing: '-0.02em', lineHeight: 1.2, marginBottom: '16px' }}>
+            Student Portal
+          </h2>
+          <p style={{ color: '#94a3b8', fontSize: '15px', lineHeight: 1.75, marginBottom: '40px' }}>
+            Sign in to view your academic transcript, verify its contents,
+            and formally report any errors before it is issued.
           </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+          {/* Features */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {[
-              'View your uploaded transcript PDF',
-              'Flag any errors directly to your admin',
-              'Track the status of your error reports',
+              { text: 'View your uploaded transcript PDF' },
+              { text: 'Report errors directly to your administrator' },
+              { text: 'Track the status of your flag in real time' },
             ].map(item => (
-              <div key={item} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+              <div key={item.text} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{
-                  width: '18px', height: '18px', borderRadius: '50%', flexShrink: 0, marginTop: '1px',
-                  background: 'rgba(20,184,166,0.2)', border: '1px solid rgba(20,184,166,0.4)',
+                  width: '28px', height: '28px', borderRadius: '8px', flexShrink: 0,
+                  background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.25)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                    <path d="M2 5l2 2 4-4" stroke="#14b8a6" strokeWidth="1.5"
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M2 6l3 3 5-5" stroke="#60a5fa" strokeWidth="1.8"
                       strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </div>
-                <p style={{ color: '#9ca3af', fontSize: '14px', lineHeight: 1.5 }}>{item}</p>
+                <p style={{ color: '#94a3b8', fontSize: '14px' }}>{item.text}</p>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Right panel */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center',
-        justifyContent: 'center', padding: '32px 24px' }}>
-        <div style={{
-          width: '100%', maxWidth: '400px',
-          animation: 'fadeUp 0.6s cubic-bezier(0.16,1,0.3,1) forwards',
-        }}>
-          <div style={{
-            background: 'rgba(255,255,255,0.05)',
-            backdropFilter: 'blur(32px)', WebkitBackdropFilter: 'blur(32px)',
-            border: '1px solid rgba(255,255,255,0.09)',
-            borderRadius: '24px', padding: '40px 36px',
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)',
-          }}>
-            <h2 style={{ color: 'white', fontWeight: 700, fontSize: '1.5rem',
-              marginBottom: '6px' }}>Student Login</h2>
-            <p style={{ color: '#6b7280', fontSize: '13px', marginBottom: '28px' }}>
-              University of Buea
-            </p>
+      {/* RIGHT — form */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column',
+        justifyContent: 'center', padding: '40px 64px' }}>
 
-            {error && (
-              <div style={{
-                background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
-                borderRadius: '12px', padding: '12px 16px', marginBottom: '20px',
-              }}>
-                <p style={{ color: '#fca5a5', fontSize: '13px' }}>{error}</p>
-              </div>
-            )}
-
-            <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {[
-                { label: 'Email Address', value: email, setter: setEmail,
-                  type: 'email', placeholder: 'your.email@example.com' },
-                { label: 'Password', value: password, setter: setPassword,
-                  type: 'password', placeholder: 'Your password' },
-              ].map(field => (
-                <div key={field.label}>
-                  <label style={{ color: '#9ca3af', fontSize: '12px', fontWeight: 700,
-                    textTransform: 'uppercase', letterSpacing: '0.06em',
-                    display: 'block', marginBottom: '8px' }}>
-                    {field.label}
-                  </label>
-                  <input type={field.type} value={field.value}
-                    onChange={e => { field.setter(e.target.value); setError(null); }}
-                    placeholder={field.placeholder}
-                    style={{
-                      width: '100%', padding: '12px 16px', borderRadius: '12px',
-                      background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-                      color: 'white', fontSize: '14px', outline: 'none', transition: 'all 0.2s',
-                    }}
-                    onFocus={e => { e.target.style.borderColor='rgba(20,184,166,0.6)'; e.target.style.background='rgba(20,184,166,0.06)'; }}
-                    onBlur={e => { e.target.style.borderColor='rgba(255,255,255,0.1)'; e.target.style.background='rgba(255,255,255,0.06)'; }}
-                  />
-                </div>
-              ))}
-
-              {/* Forgot password link */}
-              <div style={{ textAlign: 'right', marginTop: '-8px' }}>
-                <a href="/forgot-password" className="link-h"
-                  style={{ color: '#6b7280', fontSize: '13px', textDecoration: 'none',
-                    transition: 'color 0.2s' }}>
-                  Forgot your password?
-                </a>
-              </div>
-
-              <button type="submit" disabled={loading} style={{
-                width: '100%', padding: '14px',
-                background: loading ? 'rgba(20,184,166,0.4)' : 'linear-gradient(135deg,#14b8a6,#10b981)',
-                color: 'white', fontWeight: 700, fontSize: '15px',
-                border: 'none', borderRadius: '14px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                boxShadow: '0 8px 24px rgba(20,184,166,0.3)',
-                transition: 'all 0.25s',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-              }}>
-                {loading ? (
-                  <>
-                    <div style={{ width:'16px', height:'16px', borderRadius:'50%',
-                      border:'2px solid rgba(255,255,255,0.3)', borderTop:'2px solid white',
-                      animation:'spin 0.7s linear infinite' }} />
-                    Signing in...
-                  </>
-                ) : 'Sign In'}
-              </button>
-            </form>
-
-            <div style={{ height: '1px', margin: '24px 0',
-              background: 'linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent)' }} />
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'center' }}>
-              <p style={{ color: '#6b7280', fontSize: '13px' }}>
-                No account?{' '}
-                <a href="/student/register" className="link-h"
-                  style={{ color: '#14b8a6', fontWeight: 600, textDecoration: 'none' }}>
-                  Register here
-                </a>
-              </p>
-              <p style={{ color: '#6b7280', fontSize: '13px' }}>
-                Are you an admin?{' '}
-                <a href="/admin/login" className="link-h"
-                  style={{ color: '#14b8a6', fontWeight: 600, textDecoration: 'none' }}>
-                  Admin Portal
-                </a>
-              </p>
-            </div>
-          </div>
+        {/* Top nav */}
+        <div style={{ marginBottom: '48px', display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between' }}>
+          <p style={{ color: '#475569', fontSize: '13px' }}>
+            No account?{' '}
+            <a href="/student/register" className="lnk"
+              style={{ color: '#60a5fa', fontWeight: 600, textDecoration: 'none',
+                transition: 'color 0.2s' }}>
+              Register here
+            </a>
+          </p>
+          <a href="/admin/login" className="lnk"
+            style={{ color: '#475569', fontSize: '13px', textDecoration: 'none',
+              transition: 'color 0.2s' }}>
+            Admin Portal
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"
+              style={{ marginLeft: '4px', verticalAlign: 'middle' }}>
+              <path d="M2 6h8M7 3l3 3-3 3" stroke="currentColor" strokeWidth="1.5"
+                strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </a>
         </div>
+
+        <div style={{ maxWidth: '400px' }}>
+          <h1 style={{ color: '#f1f5f9', fontWeight: 700, fontSize: '1.75rem',
+            letterSpacing: '-0.02em', marginBottom: '8px' }}>
+            Sign in
+          </h1>
+          <p style={{ color: '#475569', fontSize: '14px', marginBottom: '32px' }}>
+            Enter your credentials to access your student dashboard
+          </p>
+
+          {error && (
+            <div style={{
+              background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+              borderRadius: '8px', padding: '12px 16px', marginBottom: '24px',
+              display: 'flex', alignItems: 'flex-start', gap: '10px',
+            }}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink:0, marginTop:'1px' }}>
+                <path d="M7.1 2.2a1 1 0 011.8 0l5 9a1 1 0 01-.9 1.5H2a1 1 0 01-.9-1.5l5-9z"
+                  stroke="#ef4444" strokeWidth="1.5" strokeLinejoin="round"/>
+                <path d="M8 6v3M8 11v.5" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              <p style={{ color: '#fca5a5', fontSize: '13px', lineHeight: 1.5 }}>{error}</p>
+            </div>
+          )}
+
+          <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div>
+              <label style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 600,
+                letterSpacing: '0.05em', textTransform: 'uppercase',
+                display: 'block', marginBottom: '8px' }}>
+                Email Address
+              </label>
+              <input type="email" value={email}
+                onChange={e => { setEmail(e.target.value); setError(null); }}
+                placeholder="your.email@example.com"
+                className="inp"
+                style={{
+                  width: '100%', padding: '11px 14px', borderRadius: '8px',
+                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+                  color: '#f1f5f9', fontSize: '14px', transition: 'all 0.2s',
+                }}
+              />
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between',
+                alignItems: 'center', marginBottom: '8px' }}>
+                <label style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 600,
+                  letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                  Password
+                </label>
+                <a href="/forgot-password" className="lnk"
+                  style={{ color: '#475569', fontSize: '12px', textDecoration: 'none',
+                    transition: 'color 0.2s' }}>
+                  Forgot password?
+                </a>
+              </div>
+              <input type="password" value={password}
+                onChange={e => { setPassword(e.target.value); setError(null); }}
+                placeholder="Your password"
+                className="inp"
+                style={{
+                  width: '100%', padding: '11px 14px', borderRadius: '8px',
+                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+                  color: '#f1f5f9', fontSize: '14px', transition: 'all 0.2s',
+                }}
+              />
+            </div>
+
+            <button type="submit" disabled={loading} className="btn-primary"
+              style={{
+                width: '100%', padding: '12px', borderRadius: '8px', border: 'none',
+                background: '#3b82f6', color: 'white', fontWeight: 600, fontSize: '14px',
+                cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1,
+                transition: 'all 0.2s', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', gap: '8px',
+              }}>
+              {loading ? (
+                <>
+                  <div style={{ width:'15px', height:'15px', borderRadius:'50%',
+                    border:'2px solid rgba(255,255,255,0.3)', borderTop:'2px solid white',
+                    animation:'spin 0.7s linear infinite' }} />
+                  Signing in...
+                </>
+              ) : 'Sign In'}
+            </button>
+          </form>
+        </div>
+
+        <p style={{ color: '#1e3a5f', fontSize: '12px', marginTop: 'auto', paddingTop: '40px' }}>
+          TranscriptCheck &middot; University of Buea &middot; 2025/2026
+        </p>
       </div>
     </div>
   );

@@ -1,7 +1,4 @@
 'use client';
-// Security: Only one admin can be registered per faculty.
-// If a faculty already has an admin, registration is blocked.
-// To change admin, contact the system administrator.
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -16,23 +13,13 @@ export default function AdminRegisterPage() {
   const [error, setError]     = useState<string | null>(null);
   const [otp, setOtp]         = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [faculties, setFaculties] = useState<{ id: string; faculty_name: string }[]>([]);
-
   const [form, setForm] = useState({
-    full_name: '',
-    email:     '',
-    password:  '',
-    confirm:   '',
-    faculty:   '',
+    full_name: '', email: '', password: '', confirm: '', faculty: '',
   });
 
   useEffect(() => {
-    async function loadFaculties() {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from('faculties').select('id, faculty_name').order('faculty_name');
-      setFaculties(data ?? []);
-    }
-    loadFaculties();
+    createClient().from('faculties').select('id, faculty_name').order('faculty_name')
+      .then(({ data }) => setFaculties(data ?? []));
   }, []);
 
   function onChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
@@ -43,7 +30,6 @@ export default function AdminRegisterPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-
     if (!form.full_name.trim()) return setError('Full name is required.');
     if (!form.email.trim())     return setError('Email address is required.');
     if (!form.faculty)          return setError('Please select your faculty.');
@@ -53,15 +39,9 @@ export default function AdminRegisterPage() {
     setLoading(true);
     try {
       const supabase = createClient();
-
-      // Security check: block if faculty already has an admin
       const { data: existingAdmin } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('faculty', form.faculty)
-        .eq('role', 'admin')
-        .maybeSingle();
-
+        .from('profiles').select('id')
+        .eq('faculty', form.faculty).eq('role', 'admin').maybeSingle();
       if (existingAdmin) {
         throw new Error(
           'This faculty already has a registered administrator. ' +
@@ -69,11 +49,9 @@ export default function AdminRegisterPage() {
           'To change the administrator, please contact the system team.'
         );
       }
-
       const { error: signUpErr } = await supabase.auth.signUp({
-        email:    form.email.trim().toLowerCase(),
-        password: form.password,
-        options:  { emailRedirectTo: undefined },
+        email: form.email.trim().toLowerCase(), password: form.password,
+        options: { emailRedirectTo: undefined },
       });
       if (signUpErr) throw new Error(signUpErr.message);
       setStep('otp');
@@ -92,24 +70,14 @@ export default function AdminRegisterPage() {
     try {
       const supabase = createClient();
       const { data, error: verifyErr } = await supabase.auth.verifyOtp({
-        email: form.email.trim().toLowerCase(),
-        token: code,
-        type:  'signup',
+        email: form.email.trim().toLowerCase(), token: code, type: 'signup',
       });
       if (verifyErr || !data.user) throw new Error('Invalid or expired OTP. Please try again.');
-
       const { error: profErr } = await supabase.from('profiles').insert({
-        id:        data.user.id,
-        full_name: form.full_name.trim(),
-        role:      'admin',
-        faculty:   form.faculty,
-        matricule: null,
+        id: data.user.id, full_name: form.full_name.trim(),
+        role: 'admin', faculty: form.faculty, matricule: null,
       });
-
-      if (profErr) {
-        throw new Error('Profile creation failed: ' + profErr.message);
-      }
-
+      if (profErr) throw new Error('Profile creation failed: ' + profErr.message);
       router.push('/admin/dashboard');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Verification failed.');
@@ -134,127 +102,155 @@ export default function AdminRegisterPage() {
     }
   }
 
+  const BG = 'linear-gradient(135deg,#060b18 0%,#0d1530 60%,#0b1228 100%)';
   const inp = {
-    width: '100%', padding: '12px 16px', borderRadius: '12px',
-    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-    color: 'white', fontSize: '14px', outline: 'none', transition: 'all 0.2s',
+    width: '100%', padding: '10px 14px', borderRadius: '8px',
+    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+    color: '#f1f5f9', fontSize: '14px', outline: 'none', transition: 'all 0.2s',
     fontFamily: "'Segoe UI',system-ui,sans-serif",
   };
 
   return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'linear-gradient(145deg,#050c08 0%,#071210 40%,#0a1810 100%)',
-      fontFamily: "'Segoe UI',system-ui,sans-serif", padding: '32px 16px',
-    }}>
+    <div style={{ minHeight: '100vh', display: 'flex', background: BG,
+      fontFamily: "'Segoe UI',system-ui,sans-serif" }}>
       <style>{`
-        @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes spin   { to{transform:rotate(360deg)} }
-        .inp-f:focus { border-color:rgba(20,184,166,0.6)!important; background:rgba(20,184,166,0.06)!important; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .inp:focus { border-color:rgba(245,158,11,0.5)!important; background:rgba(245,158,11,0.05)!important; outline:none; }
+        .btn:hover:not(:disabled) { background:#d97706!important; }
+        select option { background:#0d1530; color:#f1f5f9; }
+        * { box-sizing:border-box; }
       `}</style>
 
+      {/* LEFT — info */}
       <div style={{
-        width: '100%', maxWidth: '460px',
-        animation: 'fadeUp 0.6s cubic-bezier(0.16,1,0.3,1) forwards',
+        width: '40%', padding: '48px 48px',
+        display: 'flex', flexDirection: 'column', justifyContent: 'center',
+        borderRight: '1px solid rgba(255,255,255,0.06)',
+        background: 'rgba(255,255,255,0.02)',
       }}>
-        <div style={{
-          background: 'rgba(255,255,255,0.05)',
-          backdropFilter: 'blur(32px)', WebkitBackdropFilter: 'blur(32px)',
-          border: '1px solid rgba(255,255,255,0.09)',
-          borderRadius: '24px', padding: '40px 36px',
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)',
-        }}>
-          {/* Logo */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '28px' }}>
-            <div style={{
-              width: '40px', height: '40px', borderRadius: '11px',
-              background: 'linear-gradient(135deg,#14b8a6,#10b981)',
-              boxShadow: '0 0 20px rgba(20,184,166,0.4)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <span style={{ color: 'white', fontWeight: 900, fontSize: '14px' }}>TC</span>
-            </div>
-            <div>
-              <p style={{ color: 'white', fontWeight: 700, fontSize: '15px', lineHeight: 1 }}>
-                TranscriptCheck</p>
-              <p style={{ color: '#14b8a6', fontSize: '11px', marginTop: '3px' }}>Admin Registration</p>
-            </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '40px' }}>
+          <div style={{ width: '36px', height: '36px', borderRadius: '8px',
+            background: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ color: 'white', fontWeight: 900, fontSize: '12px' }}>TC</span>
           </div>
+          <span style={{ color: '#f1f5f9', fontWeight: 700, fontSize: '15px' }}>TranscriptCheck</span>
+        </div>
+
+        <h2 style={{ color: '#f1f5f9', fontWeight: 700, fontSize: '1.6rem',
+          letterSpacing: '-0.02em', lineHeight: 1.3, marginBottom: '16px' }}>
+          Admin Registration
+        </h2>
+        <p style={{ color: '#94a3b8', fontSize: '14px', lineHeight: 1.75, marginBottom: '32px' }}>
+          Create your faculty administrator account to start managing
+          student transcripts and resolving error reports.
+        </p>
+
+        <div style={{
+          background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)',
+          borderRadius: '10px', padding: '16px 18px', marginBottom: '24px',
+          display: 'flex', alignItems: 'flex-start', gap: '12px',
+        }}>
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" style={{ flexShrink:0, marginTop:'2px' }}>
+            <path d="M8 1l5.5 2.5v4.2C13.5 11 11 13.5 8 15 5 13.5 2.5 11 2.5 7.7V3.5L8 1z"
+              stroke="#f59e0b" strokeWidth="1.5" strokeLinejoin="round"/>
+            <path d="M5.5 8l2 2 3-3" stroke="#f59e0b" strokeWidth="1.5"
+              strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <p style={{ color: '#fcd34d', fontSize: '13px', lineHeight: 1.6 }}>
+            Only one administrator is permitted per faculty.
+            A database constraint enforces this rule permanently.
+          </p>
+        </div>
+
+        <p style={{ color: '#475569', fontSize: '13px' }}>
+          Already have an account?{' '}
+          <a href="/admin/login"
+            style={{ color: '#fbbf24', fontWeight: 600, textDecoration: 'none' }}>
+            Sign in here
+          </a>
+        </p>
+      </div>
+
+      {/* RIGHT — form */}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center',
+        justifyContent: 'center', padding: '48px 56px' }}>
+        <div style={{ width: '100%', maxWidth: '440px' }}>
 
           {step === 'form' ? (
             <>
-              <h2 style={{ color: 'white', fontWeight: 700, fontSize: '1.4rem',
-                marginBottom: '6px' }}>Create Admin Account</h2>
-              <p style={{ color: '#6b7280', fontSize: '13px', marginBottom: '24px',
-                lineHeight: 1.6 }}>
-                One administrator per faculty. If your faculty already has an
-                administrator, contact the system team to make changes.
+              <h1 style={{ color: '#f1f5f9', fontWeight: 700, fontSize: '1.5rem',
+                letterSpacing: '-0.02em', marginBottom: '8px' }}>
+                Create Admin Account
+              </h1>
+              <p style={{ color: '#475569', fontSize: '13px', marginBottom: '28px' }}>
+                Complete all fields to register as a faculty administrator
               </p>
 
               {error && (
                 <div style={{
                   background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
-                  borderRadius: '12px', padding: '12px 16px', marginBottom: '20px',
+                  borderRadius: '8px', padding: '12px 16px', marginBottom: '24px',
                   display: 'flex', gap: '10px',
                 }}>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink:0, marginTop:'1px' }}>
+                    <path d="M7.1 2.2a1 1 0 011.8 0l5 9a1 1 0 01-.9 1.5H2a1 1 0 01-.9-1.5l5-9z"
+                      stroke="#ef4444" strokeWidth="1.5" strokeLinejoin="round"/>
+                    <path d="M8 6v3M8 11v.5" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
                   <p style={{ color: '#fca5a5', fontSize: '13px', lineHeight: 1.5 }}>{error}</p>
                 </div>
               )}
 
-              <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
                 {[
                   { name: 'full_name', label: 'Full Name', placeholder: 'Your full name', type: 'text' },
-                  { name: 'email',     label: 'Email Address', placeholder: 'admin@example.com', type: 'email' },
-                  { name: 'password',  label: 'Password', placeholder: 'Minimum 8 characters', type: 'password' },
-                  { name: 'confirm',   label: 'Confirm Password', placeholder: 'Re-enter password', type: 'password' },
+                  { name: 'email', label: 'Email Address', placeholder: 'admin@example.com', type: 'email' },
+                  { name: 'password', label: 'Password', placeholder: 'Minimum 8 characters', type: 'password' },
+                  { name: 'confirm', label: 'Confirm Password', placeholder: 'Re-enter password', type: 'password' },
                 ].map(field => (
                   <div key={field.name}>
-                    <label style={{ color: '#9ca3af', fontSize: '12px', fontWeight: 700,
-                      textTransform: 'uppercase', letterSpacing: '0.06em',
-                      display: 'block', marginBottom: '8px' }}>
+                    <label style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 600,
+                      letterSpacing: '0.05em', textTransform: 'uppercase',
+                      display: 'block', marginBottom: '7px' }}>
                       {field.label}
                     </label>
                     <input type={field.type} name={field.name}
                       value={(form as any)[field.name]}
                       onChange={onChange} placeholder={field.placeholder}
-                      className="inp-f" style={inp}
-                      onFocus={e => { e.target.style.borderColor='rgba(20,184,166,0.6)'; e.target.style.background='rgba(20,184,166,0.06)'; }}
-                      onBlur={e => { e.target.style.borderColor='rgba(255,255,255,0.1)'; e.target.style.background='rgba(255,255,255,0.06)'; }}
+                      className="inp" style={inp}
+                      onFocus={e => { e.target.style.borderColor='rgba(245,158,11,0.5)'; e.target.style.background='rgba(245,158,11,0.05)'; }}
+                      onBlur={e => { e.target.style.borderColor='rgba(255,255,255,0.08)'; e.target.style.background='rgba(255,255,255,0.05)'; }}
                     />
                   </div>
                 ))}
 
                 <div>
-                  <label style={{ color: '#9ca3af', fontSize: '12px', fontWeight: 700,
-                    textTransform: 'uppercase', letterSpacing: '0.06em',
-                    display: 'block', marginBottom: '8px' }}>Faculty</label>
+                  <label style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 600,
+                    letterSpacing: '0.05em', textTransform: 'uppercase',
+                    display: 'block', marginBottom: '7px' }}>Faculty</label>
                   <select name="faculty" value={form.faculty} onChange={onChange}
-                    className="inp-f"
-                    style={{ ...inp, cursor: 'pointer' }}
-                    onFocus={e => { e.target.style.borderColor='rgba(20,184,166,0.6)'; e.target.style.background='rgba(20,184,166,0.06)'; }}
-                    onBlur={e => { e.target.style.borderColor='rgba(255,255,255,0.1)'; e.target.style.background='rgba(255,255,255,0.06)'; }}>
-                    <option value="" style={{ background: '#0a1810' }}>Select your faculty</option>
+                    className="inp" style={{ ...inp, cursor: 'pointer' }}
+                    onFocus={e => { e.target.style.borderColor='rgba(245,158,11,0.5)'; e.target.style.background='rgba(245,158,11,0.05)'; }}
+                    onBlur={e => { e.target.style.borderColor='rgba(255,255,255,0.08)'; e.target.style.background='rgba(255,255,255,0.05)'; }}>
+                    <option value="">Select your faculty</option>
                     {faculties.map(f => (
-                      <option key={f.id} value={f.id} style={{ background: '#0a1810' }}>
-                        {f.faculty_name}
-                      </option>
+                      <option key={f.id} value={f.id}>{f.faculty_name}</option>
                     ))}
                   </select>
                 </div>
 
-                <button type="submit" disabled={loading} style={{
-                  width: '100%', padding: '14px', marginTop: '4px',
-                  background: loading ? 'rgba(20,184,166,0.4)' : 'linear-gradient(135deg,#14b8a6,#10b981)',
-                  color: 'white', fontWeight: 700, fontSize: '15px',
-                  border: 'none', borderRadius: '14px',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 8px 24px rgba(20,184,166,0.3)',
-                  transition: 'all 0.25s',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-                }}>
+                <button type="submit" disabled={loading} className="btn"
+                  style={{
+                    width: '100%', padding: '12px', marginTop: '4px',
+                    borderRadius: '8px', border: 'none',
+                    background: '#f59e0b', color: 'white', fontWeight: 600, fontSize: '14px',
+                    cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1,
+                    transition: 'all 0.2s', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', gap: '8px',
+                  }}>
                   {loading ? (
                     <>
-                      <div style={{ width:'16px', height:'16px', borderRadius:'50%',
+                      <div style={{ width:'15px', height:'15px', borderRadius:'50%',
                         border:'2px solid rgba(255,255,255,0.3)', borderTop:'2px solid white',
                         animation:'spin 0.7s linear infinite' }} />
                       Registering...
@@ -262,29 +258,22 @@ export default function AdminRegisterPage() {
                   ) : 'Create Admin Account'}
                 </button>
               </form>
-
-              <div style={{ height: '1px', margin: '24px 0',
-                background: 'linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent)' }} />
-              <p style={{ color: '#6b7280', fontSize: '13px', textAlign: 'center' }}>
-                Already have an account?{' '}
-                <a href="/admin/login" style={{ color: '#14b8a6', fontWeight: 600, textDecoration: 'none' }}>
-                  Sign in here
-                </a>
-              </p>
             </>
           ) : (
             <>
-              <h2 style={{ color: 'white', fontWeight: 700, fontSize: '1.4rem', marginBottom: '6px' }}>
-                Verify Your Email</h2>
-              <p style={{ color: '#6b7280', fontSize: '13px', marginBottom: '28px', lineHeight: 1.6 }}>
+              <h1 style={{ color: '#f1f5f9', fontWeight: 700, fontSize: '1.5rem',
+                letterSpacing: '-0.02em', marginBottom: '8px' }}>
+                Verify Your Email
+              </h1>
+              <p style={{ color: '#94a3b8', fontSize: '14px', lineHeight: 1.6, marginBottom: '32px' }}>
                 Enter the {OTP_LENGTH}-digit code sent to{' '}
-                <strong style={{ color: 'white' }}>{form.email}</strong>
+                <strong style={{ color: '#f1f5f9' }}>{form.email}</strong>
               </p>
 
               {error && (
                 <div style={{
                   background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
-                  borderRadius: '12px', padding: '12px 16px', marginBottom: '20px',
+                  borderRadius: '8px', padding: '12px 16px', marginBottom: '20px',
                 }}>
                   <p style={{ color: '#fca5a5', fontSize: '13px' }}>{error}</p>
                 </div>
@@ -299,26 +288,25 @@ export default function AdminRegisterPage() {
                     style={{
                       width: '44px', height: '52px', textAlign: 'center',
                       fontSize: '20px', fontWeight: 700,
-                      background: 'rgba(255,255,255,0.06)',
-                      border: `2px solid ${digit ? 'rgba(20,184,166,0.6)' : 'rgba(255,255,255,0.1)'}`,
-                      borderRadius: '10px', color: 'white', outline: 'none',
-                      transition: 'all 0.2s',
+                      background: digit ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)',
+                      border: `2px solid ${digit ? 'rgba(245,158,11,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                      borderRadius: '8px', color: '#f1f5f9', outline: 'none', transition: 'all 0.2s',
                     }}
                   />
                 ))}
               </div>
 
-              <button onClick={onVerifyOtp} disabled={loading} style={{
-                width: '100%', padding: '14px',
-                background: loading ? 'rgba(20,184,166,0.4)' : 'linear-gradient(135deg,#14b8a6,#10b981)',
-                color: 'white', fontWeight: 700, fontSize: '15px',
-                border: 'none', borderRadius: '14px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-              }}>
+              <button onClick={onVerifyOtp} disabled={loading} className="btn"
+                style={{
+                  width: '100%', padding: '12px', borderRadius: '8px', border: 'none',
+                  background: '#f59e0b', color: 'white', fontWeight: 600, fontSize: '14px',
+                  cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1,
+                  transition: 'all 0.2s', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', gap: '8px',
+                }}>
                 {loading ? (
                   <>
-                    <div style={{ width:'16px', height:'16px', borderRadius:'50%',
+                    <div style={{ width:'15px', height:'15px', borderRadius:'50%',
                       border:'2px solid rgba(255,255,255,0.3)', borderTop:'2px solid white',
                       animation:'spin 0.7s linear infinite' }} />
                     Verifying...
