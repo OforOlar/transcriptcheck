@@ -352,7 +352,7 @@ export default function LandingPage() {
           textDecoration: 'none' }}>
           {/* UB Logo — borderRadius 50% makes it round like the crest shape */}
           <img
-            src="/images/ub-logo.png"
+            src="/images/ub logo.png"
             alt="University of Buea"
             style={{
               width: '42px', height: '42px', objectFit: 'cover',
